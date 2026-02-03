@@ -12,7 +12,11 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "noEmit": true,
+
+    // Emit only declarations (JS is handled by bun build)
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./dist",
 
     // Best practices
     "strict": true,
@@ -25,5 +29,6 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  "include": ["src"]
 }

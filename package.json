@@ -1,7 +1,50 @@
 {
   "name": "@danielbiegler/bunny-file-storage",
-  "module": "index.ts",
+  "description": "An implementation of @mjackson/file-storage that uses Bunny.net Object Storage as the storage backend.",
+  "homepage": "https://github.com/DanielBiegler/bunny-file-storage",
+  "version": "0.1.0",
+  "license": "MIT",
+  "author": {
+    "name": "Daniel Biegler",
+    "url": "https://www.danielbiegler.de"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DanielBiegler/bunny-file-storage"
+  },
+  "bugs": {
+    "url": "https://github.com/DanielBiegler/bunny-file-storage/issues"
+  },
+  "keywords": [
+    "file-storage",
+    "bunny",
+    "bunnynet",
+    "bunnycdn",
+    "bun"
+  ],
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "bun run clean; bun run test && bun run build:js && bun run build:types",
+    "build:js": "bun build ./src/index.ts --outdir ./dist --target node",
+    "build:types": "tsc",
+    "clean": "rm -r dist",
+    "test": "bun test"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
