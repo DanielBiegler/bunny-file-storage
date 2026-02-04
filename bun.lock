@@ -5,14 +5,24 @@
     "": {
       "name": "@danielbiegler/bunny-file-storage",
       "devDependencies": {
+        "@remix-run/file-storage": "^0.13.2",
         "@types/bun": "latest",
       },
       "peerDependencies": {
+        "@remix-run/file-storage": "^0.13.2",
         "typescript": "^5",
       },
     },
   },
   "packages": {
+    "@remix-run/file-storage": ["@remix-run/file-storage@0.13.2", "", { "dependencies": { "@remix-run/fs": "^0.4.1", "@remix-run/lazy-file": "^5.0.1" } }, "sha512-1j2ZFdXjuLraMcEqU/bQFhkDwERlZNF5IuYiDmMpubOQXqwA1gIWNyWQnPO+iaRZPcxHWuZhWYSR5477BsT76A=="],
+
+    "@remix-run/fs": ["@remix-run/fs@0.4.1", "", { "dependencies": { "@remix-run/lazy-file": "^5.0.1", "@remix-run/mime": "^0.3.0" } }, "sha512-uroe7TnOWpKzyy8zA+sfJkAqsnS0+k5YVwlv3Reo5Hw4FKrKT6w9euk+Dc9E6yFkjJubxRAUt+qSRSgm+zwPiw=="],
+
+    "@remix-run/lazy-file": ["@remix-run/lazy-file@5.0.1", "", { "dependencies": { "@remix-run/mime": "^0.3.0" } }, "sha512-jYMnzj9Pt/SkBYFvIZWDcucaTrM+LQONTeBJalV/+3IA7ej+PPAwBuAXYggc0Uoti9cWiXEraNnhefgUlouxMg=="],
+
+    "@remix-run/mime": ["@remix-run/mime@0.3.0", "", {}, "sha512-/t4gg4oOSXuI41HTdl4xbrV6VhjFiyGpA7eU7498EcaFfZ1flKdi5EqKrybH0plompB1mukCQhM9lLwiKGqOug=="],
+
     "@types/bun": ["@types/bun@1.3.8", "", { "dependencies": { "bun-types": "1.3.8" } }, "sha512-3LvWJ2q5GerAXYxO2mffLTqOzEu5qnhEAlh48Vnu8WQfnmSwbgagjGZV6BoHKJztENYEDn6QmVd949W4uESRJA=="],
 
     "@types/node": ["@types/node@25.2.0", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-DZ8VwRFUNzuqJ5khrvwMXHmvPe+zGayJhr2CDNiKB1WBE1ST8Djl00D0IC4vvNmHMdj6DlbYRIaFE7WHjlDl5w=="],
