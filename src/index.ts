@@ -1,4 +1,4 @@
 
 export {
-  BunnyFileStorage
+  BunnyFileStorage, PreserveRootError, type BunnyFileStorageOptions
 } from "./lib";
