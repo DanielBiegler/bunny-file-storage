@@ -50,8 +50,34 @@ export class BunnyFileStorage implements FileStorage {
     throw new Error("Method not implemented.");
   }
 
-  has(key: string): boolean | Promise<boolean> {
-    throw new Error("Method not implemented.");
+  /**
+   * Checks whether or not the given file exists in your storage zone.
+   * Check the `Error.cause` to see Bunnys response in case they reply with neither `200` or `404` status code.
+   * 
+   * Currently `(2026-02-05)` the Bunny Storage API can indeed fetch only the metadata instead
+   * of the entire file content by using the http method `DESCRIBE` but this is undocumented.
+   * The official SDK uses this though, see [here](https://github.com/BunnyWay/edge-script-sdk/blob/863746676d770e2abde540616610202ed77615a5/libs/bunny-storage/src/file.ts#L133)
+   * 
+   * @param key The path to your file.
+   * @returns Whether or not the file exists
+   * @throws {TypeError} If the URL is invalid, see {@link URL}
+   * @throws {Error} If the response status code is neither `200` or `404`
+   * @see https://docs.bunny.net/api-reference/storage/browse-files/list-files
+   */
+  async has(key: string): Promise<boolean> {
+    const url = new URL(this.bunnyUrl(this.storageZoneName, key), this.config.urlStorage);
+
+    const res = await fetch(url, {
+      method: "DESCRIBE",
+      headers: { ...this.defaultHeaders() },
+    });
+
+    if (res.status !== 200 && res.status !== 404) {
+      const content = res.headers.get("Content-Type") === "application/json" ? await res.json() : undefined;
+      throw new Error(`Failed to check existence, status code: ${res.status} ${res.statusText}`, { cause: content });
+    }
+
+    return res.ok;
   }
 
   list<T extends ListOptions>(options?: T): ListResult<T> | Promise<ListResult<T>> {
@@ -66,7 +92,7 @@ export class BunnyFileStorage implements FileStorage {
    * the **"new"** storage-backed file, but since this `FileStorage`-implementation is a remote upload
    * there cannot be a storage-backed "File"-object, so we simply return the passed in `file`.
    *
-   * @param key The directory path to store the file under.
+   * @param key The path to your file.
    * @param file The file to upload.
    * @returns The uploaded file.
    * @throws {Error} If the server responds with a non-OK status code.
@@ -81,7 +107,7 @@ export class BunnyFileStorage implements FileStorage {
    * Upload a file to the storage zone.
    * Check the `Error.cause` to see Bunnys response in case they reply with a non-OK status code.
    * 
-   * @param key The directory path to store the file under.
+   * @param key The path to your file.
    * @param file The file to upload.
    * @throws {Error} If the server responds with a non-OK status code.
    * @throws {TypeError} If the URL is invalid, see {@link URL}
@@ -96,7 +122,7 @@ export class BunnyFileStorage implements FileStorage {
    * In case the object is a directory all the data in it will be recursively deleted as well.
    * Check the `Error.cause` to see Bunnys response in case they reply with a non-OK status code.
    * 
-   * @param key The directory path to your file.
+   * @param key The path to your file.
    * @throws {Error} If the server responds with a non-OK status code.
    * @throws {PreserveRootError} If `preserveRoot` is enabled and `key` is either `""` or `"/"`.
    * @throws {TypeError} If the URL is invalid, see {@link URL}
@@ -121,10 +147,10 @@ export class BunnyFileStorage implements FileStorage {
   }
 
   /**
- * Currently `(2026-02-05)` the Bunny Storage API has only one way of uploading files, so this is
- * a helper function to share implementation between `set` and `put` of the `FileStorage`-Interface.
- * @returns passed in File
- */
+   * Currently `(2026-02-05)` the Bunny Storage API has only one way of uploading files, so this is
+   * a helper function to share implementation between `set` and `put` of the `FileStorage`-Interface.
+   * @returns passed in File
+   */
   private async uploadFile(key: string, file: File): Promise<File> {
     const url = new URL(this.bunnyUrl(this.storageZoneName, key), this.config.urlStorage);
 
@@ -153,19 +179,18 @@ export class BunnyFileStorage implements FileStorage {
 
   /**
    * Generates the SHA256 checksum for consumption by the Bunny.net API
-   * # TODO might need to be uppercase
    */
   private async generateChecksum(file: File): Promise<string> {
     const hashBuffer = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const checksum = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-    return checksum;
+    return checksum.toUpperCase();
   }
 
   /* Don't repeat yourself */
 
   private defaultHeaders = () => ({ Authorization: `AccessKey: ${this.accessKey}` });
-  private bunnyUrl = (storageZoneName: string, key: string) => `/${storageZoneName}/${key}`;
+  private bunnyUrl = (storageZoneName: string, key: string) => `/${this.storageZoneName}${key.startsWith("/") ? key : `/${key}`}`;
 }
 
 export class PreserveRootError extends Error {
