@@ -189,7 +189,7 @@ export class BunnyFileStorage implements FileStorage {
 
   /* Don't repeat yourself */
 
-  private defaultHeaders = () => ({ Authorization: `AccessKey: ${this.accessKey}` });
+  private defaultHeaders = () => ({ AccessKey: `${this.accessKey}` });
   private bunnyUrl = (storageZoneName: string, key: string) => `/${this.storageZoneName}${key.startsWith("/") ? key : `/${key}`}`;
 }
 
