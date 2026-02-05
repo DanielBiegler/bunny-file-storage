@@ -1,5 +1,16 @@
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
+import { BunnyFileStorage, PreserveRootError } from "./lib";
 
-test("hello world", () => {
-  expect(1 + 1).toBe(2);
-});
+describe("BunnyFileStorage: Default", () => {
+  const fs = new BunnyFileStorage("access-key", "storage-zone");
+
+  describe("remove", () => {
+    test("Fail due to empty key", async () => {
+      expect(fs.remove("")).rejects.toBeInstanceOf(PreserveRootError);
+    });
+
+    test("Fail due to root key", async () => {
+      expect(fs.remove("/")).rejects.toBeInstanceOf(PreserveRootError);
+    });
+  })
+})
