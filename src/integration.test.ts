@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { BunnyFileStorage } from "./lib";
 
 const accessKey = assertEnvVar("BUNNY_ACCESS_KEY");
@@ -25,7 +25,7 @@ describe.serial("Integration Tests", () => {
     const newFileKey = `/${keyTestFolder}put.txt`;
     const newFile = new File(["new file"], "put.txt");
 
-    beforeEach(async () => await sleep(SLEEP));
+    afterEach(async () => await sleep(SLEEP));
 
     test('Successfully create via "put"', async () => {
       const file = await fs.put(newFileKey, newFile);
@@ -37,12 +37,12 @@ describe.serial("Integration Tests", () => {
     });
   });
 
-  describe.serial.todo("get", async () => {
+  describe.serial("get", async () => {
     const newFileKey = `/${keyTestFolder}get.txt`;
     const newFileContent = Date.now().toString();
     const newFile = new File([newFileContent], "get.txt");
 
-    beforeEach(async () => await sleep(SLEEP));
+    afterEach(async () => await sleep(SLEEP));
 
     test("Successfully download file", async () => {
       await fs.put(newFileKey, newFile);
@@ -64,7 +64,7 @@ describe.serial("Integration Tests", () => {
     const newFileKey = `/${keyTestFolder}has.txt`;
     const newFile = new File(["hello world"], "has.txt");
 
-    beforeEach(async () => await sleep(SLEEP));
+    afterEach(async () => await sleep(SLEEP));
 
     test("Successfully check file", async () => {
       await fs.set(newFileKey, newFile);
@@ -84,7 +84,7 @@ describe.serial("Integration Tests", () => {
     const newFileKey = `/${keyTestFolder}remove.txt`;
     const newFile = new File(["this file should get removed"], "remove.txt");
 
-    beforeEach(async () => await sleep(SLEEP));
+    afterEach(async () => await sleep(SLEEP));
 
     test("Successfully remove file", async () => {
       await fs.set(newFileKey, newFile);

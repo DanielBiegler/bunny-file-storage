@@ -46,8 +46,34 @@ export class BunnyFileStorage implements FileStorage {
     Object.assign(this.config, options);
   }
 
-  get(key: string): File | null | Promise<File | null> {
-    throw new Error("Method not implemented.");
+  /**
+   * Download a file from the storage zone.
+   * Check the `Error.cause` to see Bunnys response in case they reply with a non-OK status code.
+   *
+   * @param key The path to your file.
+   * @returns The file, or `null` if it does not exist.
+   * @throws {Error} If the server responds with a non-OK status code other than `404`.
+   * @throws {TypeError} If the URL is invalid, see {@link URL}
+   * @see https://docs.bunny.net/api-reference/storage/manage-files/download-file
+   */
+  async get(key: string): Promise<File | null> {
+    const url = new URL(this.bunnyUrl(this.storageZoneName, key), this.config.urlStorage);
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { ...this.defaultHeaders() },
+    });
+
+    if (res.status === 404) return null;
+
+    if (!res.ok) {
+      const content = res.headers.get("Content-Type") === "application/json" ? await res.json() : undefined;
+      throw new Error(`Failed to get file, status code: ${res.status} ${res.statusText}`, { cause: content });
+    }
+
+    const blob = await res.blob();
+    const filename = key.split("/").pop() ?? key;
+    return new File([blob], filename, { type: blob.type });
   }
 
   /**
