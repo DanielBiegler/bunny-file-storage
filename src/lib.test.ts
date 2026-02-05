@@ -4,7 +4,7 @@ import { BunnyFileStorage, PreserveRootError } from "./lib";
 describe("BunnyFileStorage: Default", () => {
   const fs = new BunnyFileStorage("access-key", "storage-zone");
 
-  describe("remove", () => {
+  describe.concurrent("remove", () => {
     test("Fail due to empty key", async () => {
       expect(fs.remove("")).rejects.toBeInstanceOf(PreserveRootError);
     });
