@@ -37,19 +37,39 @@ describe.serial("Integration Tests", () => {
     });
   });
 
+  describe.serial("list", async () => {
+    const newFileFolder = `/${keyTestFolder}list/`;
+    const newFile01Name = "list-01.txt";
+    const newFile01Key = `${newFileFolder}${newFile01Name}`;
+    const newFile01Content = "new file in list";
+    const newFile01 = new File([newFile01Content], `${newFile01Name}`);
+
+    await fs.set(newFile01Key, newFile01);
+    await sleep(SLEEP);
+    afterEach(async () => await sleep(SLEEP));
+
+    test('Successfully list directory content', async () => {
+      const res = await fs.list({ prefix: newFileFolder, includeMetadata: true });
+      expect(res.files.length).toBe(1);
+      expect(res.files[0].key).toEndWith(newFile01Key);
+      expect(res.files[0].name).toBe(newFile01Name);
+      expect(res.files[0].size).toBe(newFile01Content.length);
+      // TODO mime type
+      // TODO lastchanged
+    });
+  });
+
   describe.serial("get", async () => {
     const newFileKey = `/${keyTestFolder}get.txt`;
     const newFileContent = Date.now().toString();
     const newFile = new File([newFileContent], "get.txt");
 
+    await fs.put(newFileKey, newFile);
+    await sleep(SLEEP);
     afterEach(async () => await sleep(SLEEP));
 
     test("Successfully download file", async () => {
-      await fs.put(newFileKey, newFile);
-      await sleep(SLEEP);
-
       const file = await fs.get(newFileKey);
-
       expect(file).toBeInstanceOf(File);
       expect(await file?.text()).toEqual(newFileContent);
     })
@@ -64,12 +84,11 @@ describe.serial("Integration Tests", () => {
     const newFileKey = `/${keyTestFolder}has.txt`;
     const newFile = new File(["hello world"], "has.txt");
 
+    await fs.set(newFileKey, newFile);
+    await sleep(SLEEP);
     afterEach(async () => await sleep(SLEEP));
 
     test("Successfully check file", async () => {
-      await fs.set(newFileKey, newFile);
-      await sleep(SLEEP);
-
       const exists = await fs.has(newFileKey);
       expect(exists).toBeTrue();
     })

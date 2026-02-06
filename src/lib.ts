@@ -1,4 +1,4 @@
-import type { FileStorage, ListOptions, ListResult } from "@remix-run/file-storage";
+import type { FileKey, FileMetadata, FileStorage, ListOptions, ListResult } from "@remix-run/file-storage";
 
 export type BunnyFileStorageOptions = {
   /**
@@ -57,7 +57,7 @@ export class BunnyFileStorage implements FileStorage {
    * @see https://docs.bunny.net/api-reference/storage/manage-files/download-file
    */
   async get(key: string): Promise<File | null> {
-    const url = new URL(this.bunnyUrl(this.storageZoneName, key), this.config.urlStorage);
+    const url = new URL(this.bunnyUrl(key), this.config.urlStorage);
 
     const res = await fetch(url, {
       method: "GET",
@@ -91,7 +91,7 @@ export class BunnyFileStorage implements FileStorage {
    * @see https://docs.bunny.net/api-reference/storage/browse-files/list-files
    */
   async has(key: string): Promise<boolean> {
-    const url = new URL(this.bunnyUrl(this.storageZoneName, key), this.config.urlStorage);
+    const url = new URL(this.bunnyUrl(key), this.config.urlStorage);
 
     const res = await fetch(url, {
       method: "DESCRIBE",
@@ -106,8 +106,80 @@ export class BunnyFileStorage implements FileStorage {
     return res.ok;
   }
 
-  list<T extends ListOptions>(options?: T): ListResult<T> | Promise<ListResult<T>> {
-    throw new Error("Method not implemented.");
+  /**
+   * List files in the storage zone.
+   * Directories are filtered out since the `FileStorage` interface only deals with files.
+   *
+   * Note: Bunny.net does not support pagination, so the `cursor` and `limit` options are ignored
+   * and the returned `cursor` will always be `undefined`.
+   * 
+   * // TODO add client side pagination but add disclaimer in jsdoc
+   *
+   * @param options Options for listing files.
+   * @param options.prefix The directory path to list. Defaults to `"/"`.
+   * @param options.includeMetadata If `true`, include file metadata (name, size, type, lastModified) in the result.
+   * @returns The list of files.
+   * @throws {UnknownContentTypeError} If Bunny.net responds with a non-JSON content type.
+   * @throws {ValidationError} If the response payload does not match the expected schema.
+   * @throws {TypeError} If the URL is invalid, see {@link URL}
+   * @see https://docs.bunny.net/api-reference/storage/browse-files/list-files
+   */
+  async list<T extends ListOptions>(options?: T): Promise<ListResult<T>> {
+    const prefix = options?.prefix ?? "/";
+    const path = prefix.endsWith("/") ? prefix : `${prefix}/`;
+    const url = new URL(this.bunnyUrl(path), this.config.urlStorage);
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { ...this.defaultHeaders() },
+    });
+
+    if (res.headers.get("Content-Type") !== "application/json")
+      throw new UnknownContentTypeError(`Expected a JSON response but Bunny.net replied with: ${res.headers.get("Content-Type")}`);
+
+    const content = await res.json() as BunnyListResponseSchema;
+    if (!Array.isArray(content))
+      throw new ValidationError(`Expected an array but Bunny.net replied with: "${typeof content}"`);
+
+    // Filtering out directories because the FileStorage Interface only deals with files
+    const files = content.filter(item => {
+      if (typeof item.IsDirectory !== "boolean")
+        throw new ValidationError(`Expected "IsDirectory" to be a boolean but got "${typeof item.IsDirectory}"`);
+
+      return !item.IsDirectory
+    });
+
+    const outputFiles = files.map(f => {
+      if (typeof f.Path !== "string") throw new ValidationError(`Expected "Path" to be a string but got: "${typeof f.Path}"`);
+      if (typeof f.ObjectName !== "string") throw new ValidationError(`Expected "ObjectName" to be a string but got: "${typeof f.ObjectName}"`);
+      if (typeof f.Length !== "number") throw new ValidationError(`Expected "Length" to be a string but got: "${typeof f.Length}"`);
+      if (typeof f.LastChanged !== "string") throw new ValidationError(`Expected "LastChanged" to be a string but got: "${typeof f.LastChanged}"`);
+      if (typeof f.ContentType !== "string") throw new ValidationError(`Expected "ContentType" to be a string but got: "${typeof f.ContentType}"`);
+
+      const key = `${f.Path}${f.ObjectName}`;
+
+      if (options?.includeMetadata === true) {
+        const time = new Date(f.LastChanged).getTime();
+        if (isNaN(time)) throw new ValidationError(`Expected "LastChanged" to convert to a Date but failed, tried converting: "${f.LastChanged}"`);
+
+        return {
+          key,
+          name: f.ObjectName,
+          lastModified: time,
+          size: f.Length,
+          type: f.ContentType,
+        } satisfies FileMetadata
+      }
+
+      return { key } satisfies FileKey;
+      // Sadly typescript control flow analysis doesnt connect metadata option to the output
+      // But due to `satisfies` we can still get overall benefits
+    }) as ListResult<T>["files"];
+
+    return {
+      cursor: undefined,
+      files: outputFiles,
+    }
   }
 
   /**
@@ -159,7 +231,7 @@ export class BunnyFileStorage implements FileStorage {
       throw new PreserveRootError('Denied deletion of root folder because "preserveRoot" is true. You may disable this via the constructor options.');
     }
 
-    const url = new URL(this.bunnyUrl(this.storageZoneName, key), this.config.urlStorage);
+    const url = new URL(this.bunnyUrl(key), this.config.urlStorage);
 
     const res = await fetch(url, {
       method: "DELETE",
@@ -178,7 +250,7 @@ export class BunnyFileStorage implements FileStorage {
    * @returns passed in File
    */
   private async uploadFile(key: string, file: File): Promise<File> {
-    const url = new URL(this.bunnyUrl(this.storageZoneName, key), this.config.urlStorage);
+    const url = new URL(this.bunnyUrl(key), this.config.urlStorage);
 
     const headers: Record<string, string> = {
       ...this.defaultHeaders(),
@@ -215,13 +287,42 @@ export class BunnyFileStorage implements FileStorage {
 
   /* Don't repeat yourself */
 
-  private defaultHeaders = () => ({ AccessKey: `${this.accessKey}` });
-  private bunnyUrl = (storageZoneName: string, key: string) => `/${this.storageZoneName}${key.startsWith("/") ? key : `/${key}`}`;
+  private defaultHeaders = () => ({ Accept: 'application/json', AccessKey: `${this.accessKey}` });
+  private bunnyUrl = (key: string) => `/${this.storageZoneName}${key.startsWith("/") ? key : `/${key}`}`;
 }
 
+/** For defensive purposes everything is optional to enforce checks */
+export type BunnyListResponseSchema = null | undefined | Array<{
+  IsDirectory?: boolean;
+  /** Just the directory without filename, see `ObjectName` */
+  Path?: string;
+  /** Filename without path */
+  ObjectName?: string;
+  /** Should be in ISO format */
+  LastChanged?: string;
+  /** Should be bytes */
+  Length?: number;
+  /** Should be MIME type or empty */
+  ContentType?: string;
+}>;
+
 export class PreserveRootError extends Error {
-  constructor(reason: string) {
+  constructor(reason?: string) {
     super(reason);
     this.name = "PreserveRootError";
+  }
+}
+
+export class UnknownContentTypeError extends Error {
+  constructor(reason?: string) {
+    super(reason);
+    this.name = "UnknownContentTypeError";
+  }
+}
+
+export class ValidationError extends Error {
+  constructor(reason?: string) {
+    super(reason);
+    this.name = "ValidationError";
   }
 }
