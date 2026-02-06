@@ -7,7 +7,7 @@
       "name": "Debug Bun Test File",
       "program": "test",
       "cwd": "${workspaceFolder}",
-      "args": ["${file}"],
+      "args": ["--timeout=0", "${file}"],
       "stopOnEntry": false
     },
     {
