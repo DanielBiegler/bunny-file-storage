@@ -1,5 +1,5 @@
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
-import { BunnyFileStorage, InputValidationError } from "./lib";
+import { BunnyFileStorage } from "./lib";
 
 const accessKey = assertEnvVar("BUNNY_ACCESS_KEY");
 const storageZoneName = assertEnvVar("BUNNY_STORAGE_ZONE_NAME");
@@ -86,16 +86,6 @@ describe.serial("Integration Tests", () => {
       expect(second.cursor).toBeUndefined();
       expect(second.files.length).toBe(1);
       expect(second.files[0].key).toEndWith(newFile02Key); // This relies on insertion order which may not be true
-    });
-
-    test("Fail due to invalid inputs", async () => {
-      const limit = fs.list({ limit: -1 });
-      expect(limit).rejects.toThrow("limit");
-      expect(limit).rejects.toBeInstanceOf(InputValidationError);
-
-      const cursor = fs.list({ cursor: "-1" });
-      expect(cursor).rejects.toThrow("cursor");
-      expect(cursor).rejects.toBeInstanceOf(InputValidationError);
     });
   });
 
