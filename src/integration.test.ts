@@ -1,5 +1,5 @@
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
-import { BunnyFileStorage } from "./lib";
+import { BunnyFileStorage, InputValidationError } from "./lib";
 
 const accessKey = assertEnvVar("BUNNY_ACCESS_KEY");
 const storageZoneName = assertEnvVar("BUNNY_STORAGE_ZONE_NAME");
@@ -39,23 +39,63 @@ describe.serial("Integration Tests", () => {
 
   describe.serial("list", async () => {
     const newFileFolder = `/${keyTestFolder}list/`;
+
     const newFile01Name = "list-01.txt";
     const newFile01Key = `${newFileFolder}${newFile01Name}`;
-    const newFile01Content = "new file in list";
+    const newFile01Content = "#1";
     const newFile01 = new File([newFile01Content], `${newFile01Name}`);
 
+    const newFile02Name = "list-02.txt";
+    const newFile02Key = `${newFileFolder}${newFile02Name}`;
+    const newFile02Content = "#2";
+    const newFile02 = new File([newFile02Content], `${newFile02Name}`);
+
     await fs.set(newFile01Key, newFile01);
+    await fs.set(newFile02Key, newFile02);
     await sleep(SLEEP);
     afterEach(async () => await sleep(SLEEP));
 
-    test('Successfully list directory content', async () => {
+    test("Successfully list directory content with metadata", async () => {
       const res = await fs.list({ prefix: newFileFolder, includeMetadata: true });
-      expect(res.files.length).toBe(1);
-      expect(res.files[0].key).toEndWith(newFile01Key);
-      expect(res.files[0].name).toBe(newFile01Name);
-      expect(res.files[0].size).toBe(newFile01Content.length);
+      expect(res.files.length).toBe(2);
+
+      const firstFile = res.files.find(f => f.key.endsWith(newFile01Key));
+      expect(firstFile).toBeDefined();
+      expect(firstFile?.key).toEndWith(newFile01Key);
+      expect(firstFile?.name).toBe(newFile01Name);
+      expect(firstFile?.size).toBe(newFile01Content.length);
       // TODO mime type
       // TODO lastchanged
+
+      const secondFile = res.files.find(f => f.key.endsWith(newFile02Key));
+      expect(secondFile).toBeDefined();
+      expect(secondFile?.key).toEndWith(newFile02Key);
+      expect(secondFile?.name).toBe(newFile02Name);
+      expect(secondFile?.size).toBe(newFile02Content.length);
+      // TODO mime type
+      // TODO lastchanged
+    });
+
+    test("Successfully list directory with limit and cursor", async () => {
+      const first = await fs.list({ prefix: newFileFolder, limit: 1 });
+      expect(first.cursor).toBe("1");
+      expect(first.files.length).toBe(1);
+      expect(first.files[0].key).toEndWith(newFile01Key); // This relies on insertion order which may not be true
+
+      const second = await fs.list({ prefix: newFileFolder, limit: 1, cursor: first.cursor });
+      expect(second.cursor).toBeUndefined();
+      expect(second.files.length).toBe(1);
+      expect(second.files[0].key).toEndWith(newFile02Key); // This relies on insertion order which may not be true
+    });
+
+    test("Fail due to invalid inputs", async () => {
+      const limit = fs.list({ limit: -1 });
+      expect(limit).rejects.toThrow("limit");
+      expect(limit).rejects.toBeInstanceOf(InputValidationError);
+
+      const cursor = fs.list({ cursor: "-1" });
+      expect(cursor).rejects.toThrow("cursor");
+      expect(cursor).rejects.toBeInstanceOf(InputValidationError);
     });
   });
 

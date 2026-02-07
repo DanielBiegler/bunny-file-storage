@@ -110,17 +110,19 @@ export class BunnyFileStorage implements FileStorage {
    * List files in the storage zone.
    * Directories are filtered out since the `FileStorage` interface only deals with files.
    *
-   * Note: Bunny.net does not support pagination, so the `cursor` and `limit` options are ignored
-   * and the returned `cursor` will always be `undefined`.
-   * 
-   * // TODO add client side pagination but add disclaimer in jsdoc
+   * **Important Note:** Bunny.net does not support server-side pagination, so pagination is implemented client-side.
+   * This means the entire directory listing is fetched from Bunny.net on every call, then sliced
+   * according to `cursor` and `limit`. For directories with many files, this may be inefficient.
    *
    * @param options Options for listing files.
    * @param options.prefix The directory path to list. Defaults to `"/"`.
+   * @param options.cursor The index to start listing from (as a string). Defaults to `"0"`.
+   * @param options.limit The maximum number of files to return. If not specified, all files are returned.
    * @param options.includeMetadata If `true`, include file metadata (name, size, type, lastModified) in the result.
    * @returns The list of files.
+   * @throws {InputValidationError} If user provides invalid input like a negative limit or cursor
    * @throws {UnknownContentTypeError} If Bunny.net responds with a non-JSON content type.
-   * @throws {ValidationError} If the response payload does not match the expected schema.
+   * @throws {ResponseValidationError} If the response payload does not match the expected schema or input validation fails
    * @throws {TypeError} If the URL is invalid, see {@link URL}
    * @see https://docs.bunny.net/api-reference/storage/browse-files/list-files
    */
@@ -128,6 +130,14 @@ export class BunnyFileStorage implements FileStorage {
     const prefix = options?.prefix ?? "/";
     const path = prefix.endsWith("/") ? prefix : `${prefix}/`;
     const url = new URL(this.bunnyUrl(path), this.config.urlStorage);
+
+    const cursorCurrent = options?.cursor ? parseInt(options.cursor, 10) : 0;
+    if (isNaN(cursorCurrent) || cursorCurrent < 0)
+      throw new InputValidationError(`Expected "cursor" to be a non-negative integer but got: "${options?.cursor}"`);
+
+    const limit = options?.limit;
+    if (limit !== undefined && (typeof limit !== "number" || limit < 0))
+      throw new InputValidationError(`Expected "limit" to be a non-negative number but got: "${limit}"`);
 
     const res = await fetch(url, {
       method: "GET",
@@ -139,28 +149,32 @@ export class BunnyFileStorage implements FileStorage {
 
     const content = await res.json() as BunnyListResponseSchema;
     if (!Array.isArray(content))
-      throw new ValidationError(`Expected an array but Bunny.net replied with: "${typeof content}"`);
+      throw new ResponseValidationError(`Expected an array but Bunny.net replied with: "${typeof content}"`);
 
     // Filtering out directories because the FileStorage Interface only deals with files
     const files = content.filter(item => {
       if (typeof item.IsDirectory !== "boolean")
-        throw new ValidationError(`Expected "IsDirectory" to be a boolean but got "${typeof item.IsDirectory}"`);
+        throw new ResponseValidationError(`Expected "IsDirectory" to be a boolean but got "${typeof item.IsDirectory}"`);
 
       return !item.IsDirectory
     });
 
-    const outputFiles = files.map(f => {
-      if (typeof f.Path !== "string") throw new ValidationError(`Expected "Path" to be a string but got: "${typeof f.Path}"`);
-      if (typeof f.ObjectName !== "string") throw new ValidationError(`Expected "ObjectName" to be a string but got: "${typeof f.ObjectName}"`);
-      if (typeof f.Length !== "number") throw new ValidationError(`Expected "Length" to be a string but got: "${typeof f.Length}"`);
-      if (typeof f.LastChanged !== "string") throw new ValidationError(`Expected "LastChanged" to be a string but got: "${typeof f.LastChanged}"`);
-      if (typeof f.ContentType !== "string") throw new ValidationError(`Expected "ContentType" to be a string but got: "${typeof f.ContentType}"`);
+    const endIndex = limit !== undefined ? cursorCurrent + limit : files.length;
+    const paginatedFiles = files.slice(cursorCurrent, endIndex);
+    const cursorNext = endIndex < files.length ? String(endIndex) : undefined;
+
+    const outputFiles = paginatedFiles.map(f => {
+      if (typeof f.Path !== "string") throw new ResponseValidationError(`Expected "Path" to be a string but got: "${typeof f.Path}"`);
+      if (typeof f.ObjectName !== "string") throw new ResponseValidationError(`Expected "ObjectName" to be a string but got: "${typeof f.ObjectName}"`);
+      if (typeof f.Length !== "number") throw new ResponseValidationError(`Expected "Length" to be a string but got: "${typeof f.Length}"`);
+      if (typeof f.LastChanged !== "string") throw new ResponseValidationError(`Expected "LastChanged" to be a string but got: "${typeof f.LastChanged}"`);
+      if (typeof f.ContentType !== "string") throw new ResponseValidationError(`Expected "ContentType" to be a string but got: "${typeof f.ContentType}"`);
 
       const key = `${f.Path}${f.ObjectName}`;
 
       if (options?.includeMetadata === true) {
         const time = new Date(f.LastChanged).getTime();
-        if (isNaN(time)) throw new ValidationError(`Expected "LastChanged" to convert to a Date but failed, tried converting: "${f.LastChanged}"`);
+        if (isNaN(time)) throw new ResponseValidationError(`Expected "LastChanged" to convert to a Date but failed, tried converting: "${f.LastChanged}"`);
 
         return {
           key,
@@ -177,7 +191,7 @@ export class BunnyFileStorage implements FileStorage {
     }) as ListResult<T>["files"];
 
     return {
-      cursor: undefined,
+      cursor: cursorNext,
       files: outputFiles,
     }
   }
@@ -291,7 +305,11 @@ export class BunnyFileStorage implements FileStorage {
   private bunnyUrl = (key: string) => `/${this.storageZoneName}${key.startsWith("/") ? key : `/${key}`}`;
 }
 
-/** For defensive purposes everything is optional to enforce checks */
+/**
+ * For defensive purposes everything is optional to enforce checks!
+ * This also does not feature all the returned properties, only the ones we need.
+ * The Bunny API returns more than these!
+ */
 export type BunnyListResponseSchema = null | undefined | Array<{
   IsDirectory?: boolean;
   /** Just the directory without filename, see `ObjectName` */
@@ -320,9 +338,18 @@ export class UnknownContentTypeError extends Error {
   }
 }
 
-export class ValidationError extends Error {
+/** Error for when the Bunny.net Response is unexpected */
+export class ResponseValidationError extends Error {
   constructor(reason?: string) {
     super(reason);
-    this.name = "ValidationError";
+    this.name = "ResponseValidationError";
+  }
+}
+
+/** Error for when the User provided invalid inputs */
+export class InputValidationError extends Error {
+  constructor(reason?: string) {
+    super(reason);
+    this.name = "InputValidationError";
   }
 }
