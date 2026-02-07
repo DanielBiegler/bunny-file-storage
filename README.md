@@ -32,6 +32,14 @@ pnpm add @danielbiegler/bunny-file-storage
 # ...
 ```
 
+Or build it locally via:
+
+```shell
+bun run build
+```
+
+See [package.json](./package.json) for details.
+
 ## Usage
 
 ```ts
