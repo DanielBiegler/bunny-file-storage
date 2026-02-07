@@ -91,6 +91,25 @@ bun run test
 > [!TIP]
 > **For integration tests valid credentials are required.** Obtain them from your Bunny Dashboard. Afterwards see `.env.example` and copy them over to `.env`
 
+There's a suite of tests covering failure cases before every release, see:
+
+```
+✓ BunnyFileStorage > list > Fail due to invalid inputs
+✓ BunnyFileStorage > remove > Fail due to empty key
+✓ BunnyFileStorage > remove > Fail due to root key
+
+✓ Integration Tests > create > Successfully create via "put"
+✓ Integration Tests > create > Successfully create via "set"
+✓ Integration Tests > list > Successfully list directory content with metadata
+✓ Integration Tests > list > Successfully list directory with limit and cursor
+✓ Integration Tests > get > Successfully download file
+✓ Integration Tests > get > Fail to download file because it does not exist
+✓ Integration Tests > has > Successfully check file
+✓ Integration Tests > has > Successfully check non-existing file
+✓ Integration Tests > remove > Successfully remove file
+✓ Integration Tests > remove > Fail to remove file because it does not exist
+```
+
 ## License
 
 MIT - See [LICENSE](./LICENSE)
