@@ -108,7 +108,9 @@ export class BunnyFileStorage implements FileStorage {
 
   /**
    * List files in the storage zone.
-   * Directories are filtered out since the `FileStorage` interface only deals with files.
+   * 
+   * **Important Note:** Directories are filtered out since the `FileStorage` interface only deals with files.
+   * If you need recursive listing please open a pull request over [here](https://github.com/DanielBiegler/bunny-file-storage).
    *
    * **Important Note:** Bunny.net does not support server-side pagination, so pagination is implemented client-side.
    * This means the entire directory listing is fetched from Bunny.net on every call, then sliced
