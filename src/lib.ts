@@ -326,6 +326,10 @@ export type BunnyListResponseSchema = null | undefined | Array<{
   ContentType?: string;
 }>;
 
+/**
+ * Error to help users prevent deleting their root folder recursively.
+ * If you know what you're doing, see {@link BunnyFileStorageOptions} to disable this.
+ */
 export class PreserveRootError extends Error {
   constructor(reason?: string) {
     super(reason);
@@ -333,6 +337,7 @@ export class PreserveRootError extends Error {
   }
 }
 
+/** Error for when the Bunny.net responses content is not JSON */
 export class UnknownContentTypeError extends Error {
   constructor(reason?: string) {
     super(reason);
