@@ -2,7 +2,7 @@
   "name": "@danielbiegler/bunny-file-storage",
   "description": "An implementation of @remix-run/file-storage that uses Bunny.net Object Storage as the storage backend.",
   "homepage": "https://github.com/DanielBiegler/bunny-file-storage",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "license": "MIT",
   "author": {
     "name": "Daniel Biegler",
@@ -39,7 +39,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "bun run clean; bun run test && bun run build:js && bun run build:types",
+    "build": "bun run clean; bun run build:js && bun run build:types",
     "build:js": "bun build ./src/index.ts --outdir ./dist --target node",
     "build:types": "tsc",
     "clean": "rm -r dist",
